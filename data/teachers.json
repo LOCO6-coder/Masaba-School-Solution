@@ -1,0 +1,17 @@
+[
+  {
+    "id": "t1",
+    "name": "Demo Teacher",
+    "staffId": "MSS-T001",
+    "email": "teacher@masaba.local",
+    "phone": "",
+    "classIds": [
+      "jss-2"
+    ],
+    "subjectIds": [
+      "sub-1",
+      "sub-5"
+    ],
+    "status": "Active"
+  }
+]

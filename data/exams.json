@@ -1,0 +1,64 @@
+[
+  {
+    "id": "exam_demo",
+    "title": "Masaba General Knowledge CBT",
+    "subjectId": "sub-1",
+    "classId": "jss-2",
+    "description": "Demo examination.",
+    "durationMinutes": 10,
+    "status": "published",
+    "startAt": null,
+    "endAt": null,
+    "maxAttempts": 1,
+    "questions": [
+      {
+        "id": "q1",
+        "text": "What is 7 × 8?",
+        "options": [
+          "48",
+          "54",
+          "56",
+          "64"
+        ],
+        "answer": 2,
+        "marks": 1
+      },
+      {
+        "id": "q2",
+        "text": "Which gas do plants mainly take in during photosynthesis?",
+        "options": [
+          "Oxygen",
+          "Carbon dioxide",
+          "Nitrogen",
+          "Hydrogen"
+        ],
+        "answer": 1,
+        "marks": 1
+      },
+      {
+        "id": "q3",
+        "text": "Choose the correctly spelled word.",
+        "options": [
+          "Enviroment",
+          "Environment",
+          "Envirronment",
+          "Enviornment"
+        ],
+        "answer": 1,
+        "marks": 1
+      },
+      {
+        "id": "q4",
+        "text": "What is the capital of Ogun State?",
+        "options": [
+          "Ibadan",
+          "Abeokuta",
+          "Akure",
+          "Lagos"
+        ],
+        "answer": 1,
+        "marks": 1
+      }
+    ]
+  }
+]

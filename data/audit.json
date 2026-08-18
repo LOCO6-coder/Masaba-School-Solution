@@ -1,0 +1,82 @@
+[
+  {
+    "id": "audit_6628d409baa2",
+    "at": "2026-08-15T13:56:36.579Z",
+    "user": "teacher",
+    "role": "teacher",
+    "action": "LOGIN",
+    "details": "Successful login"
+  },
+  {
+    "id": "audit_c9b6cc96f051",
+    "at": "2026-08-15T13:54:48.213Z",
+    "user": "parent",
+    "role": "parent",
+    "action": "LOGIN",
+    "details": "Successful login"
+  },
+  {
+    "id": "audit_fe2e5077332f",
+    "at": "2026-08-15T13:02:51.517Z",
+    "user": "principal",
+    "role": "principal",
+    "action": "LOGIN",
+    "details": "Successful login"
+  },
+  {
+    "id": "audit_0c8126d89d32",
+    "at": "2026-08-15T12:57:06.279Z",
+    "user": "student",
+    "role": "student",
+    "action": "LOGIN",
+    "details": "Successful login"
+  },
+  {
+    "id": "audit_e17b18352db4",
+    "at": "2026-08-13T17:11:22.829Z",
+    "user": "admin",
+    "role": "admin",
+    "action": "LOGIN",
+    "details": "Successful login"
+  },
+  {
+    "id": "audit_89c338f22e66",
+    "at": "2026-08-13T17:08:08.940Z",
+    "user": "student",
+    "role": "student",
+    "action": "LOGIN",
+    "details": "Successful login"
+  },
+  {
+    "id": "audit_4d41231e23b1",
+    "at": "2026-08-13T17:06:32.079Z",
+    "user": "admin",
+    "role": "admin",
+    "action": "UPDATE_STUDENT_SUBJECTS",
+    "details": "Demo Student: sub_f071a0c2af1f,sub_698da815d5f9"
+  },
+  {
+    "id": "audit_8539b924ce5c",
+    "at": "2026-08-13T17:00:59.697Z",
+    "user": "admin",
+    "role": "admin",
+    "action": "UPDATE_STUDENT_SUBJECTS",
+    "details": "Demo Student: "
+  },
+  {
+    "id": "audit_7aed4f547d5c",
+    "at": "2026-08-13T17:00:51.375Z",
+    "user": "admin",
+    "role": "admin",
+    "action": "LOGIN",
+    "details": "Successful login"
+  },
+  {
+    "id": "audit_7eb247eedbd1",
+    "at": "2026-08-13T17:00:04.227Z",
+    "user": "admin",
+    "role": "admin",
+    "action": "LOGIN",
+    "details": "Successful login"
+  }
+]

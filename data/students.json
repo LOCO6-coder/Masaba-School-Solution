@@ -1,0 +1,16 @@
+[
+  {
+    "id": "s1",
+    "admissionNo": "MSS-0001",
+    "name": "Demo Student",
+    "classId": "jss-2",
+    "gender": "",
+    "dob": "",
+    "parentId": "p1",
+    "status": "Active",
+    "subjectIds": [
+      "sub_f071a0c2af1f",
+      "sub_698da815d5f9"
+    ]
+  }
+]

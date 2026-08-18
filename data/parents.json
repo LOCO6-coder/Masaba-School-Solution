@@ -1,0 +1,12 @@
+[
+  {
+    "id": "p1",
+    "name": "Demo Parent",
+    "phone": "",
+    "email": "parent@masaba.local",
+    "studentIds": [
+      "s1"
+    ],
+    "status": "Active"
+  }
+]

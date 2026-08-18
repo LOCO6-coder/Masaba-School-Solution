@@ -1,0 +1,47 @@
+[
+  {
+    "id": "usr_0fd8c5fccf67",
+    "username": "admin",
+    "passwordHash": "$2b$10$rWr6PF8z8E6jCStZwV/Wne6sJvXkgEgivx8a9pCBfJ2jqd.FIE3xK",
+    "role": "admin",
+    "name": "School Administrator",
+    "personId": null,
+    "active": true
+  },
+  {
+    "id": "usr_9c99b63fc9d1",
+    "username": "principal",
+    "passwordHash": "$2b$10$rE6mV42VO4ipVjy8P.Cw5uguIjJ5eLj.Qaqh4rqgXWV.A8reOS0p.",
+    "role": "principal",
+    "name": "Demo Principal",
+    "personId": null,
+    "active": true
+  },
+  {
+    "id": "usr_e648493e1698",
+    "username": "teacher",
+    "passwordHash": "$2b$10$IBW/RS0sBQ3b.iX44KE/iuhAJBV6i0hK6ZQgD3NEBNaQapWyxVz2.",
+    "role": "teacher",
+    "name": "Demo Teacher",
+    "personId": "t1",
+    "active": true
+  },
+  {
+    "id": "usr_5f055257076a",
+    "username": "student",
+    "passwordHash": "$2b$10$VxumrYaIw/EZ0zULlhsTw.M9JmcrmwGhARHA6ck7HjcOMMp6ZeJc2",
+    "role": "student",
+    "name": "Demo Student",
+    "personId": "s1",
+    "active": true
+  },
+  {
+    "id": "usr_62fffe232b39",
+    "username": "parent",
+    "passwordHash": "$2b$10$mv1Q3zp9KVA2BRPNKsPkEeX9FVGmWu0vQFB/be/DPApmuMlJgEeIe",
+    "role": "parent",
+    "name": "Demo Parent",
+    "personId": "p1",
+    "active": true
+  }
+]

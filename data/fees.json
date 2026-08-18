@@ -1,0 +1,13 @@
+[
+  {
+    "id": "fee_c8d21be6febd",
+    "studentId": "s1",
+    "session": "2026/2027",
+    "term": "First Term",
+    "item": "School fees",
+    "amount": 120000,
+    "paid": 120000,
+    "status": "Paid",
+    "dueDate": "2026-09-15"
+  }
+]

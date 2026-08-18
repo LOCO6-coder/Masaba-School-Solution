@@ -1,0 +1,41 @@
+[
+  {
+    "id": "res_831794e1bb8a",
+    "studentId": "s1",
+    "session": "2026/2027",
+    "term": "First Term",
+    "subjectId": "sub-2",
+    "ca": 25,
+    "exam": 60,
+    "score": 85,
+    "grade": "A",
+    "published": true,
+    "remark": "Excellent work."
+  },
+  {
+    "id": "res_83489c18e339",
+    "studentId": "s1",
+    "session": "2026/2027",
+    "term": "First Term",
+    "subjectId": "sub-1",
+    "ca": 24,
+    "exam": 57,
+    "score": 81,
+    "grade": "A",
+    "published": true,
+    "remark": "Very good."
+  },
+  {
+    "id": "res_9294c54d3a4f",
+    "studentId": "s1",
+    "session": "2026/2027",
+    "term": "First Term",
+    "subjectId": "sub-3",
+    "ca": 22,
+    "exam": 57,
+    "score": 79,
+    "grade": "A",
+    "published": true,
+    "remark": "Good progress."
+  }
+]
