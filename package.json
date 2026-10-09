@@ -1,6 +1,6 @@
 {
   "name": "masaba-school-solution",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "description": "Masaba School Solution digital campus and school management system",
   "main": "server.js",
@@ -10,9 +10,12 @@
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
-    "cors": "^2.8.5",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "pg": "^8.13.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
