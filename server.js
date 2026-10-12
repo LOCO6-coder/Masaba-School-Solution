@@ -24,7 +24,7 @@ app.use(express.static(PUBLIC_DIR));
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 const files = {};
-for (const name of ["users","students","teachers","parents","classes","subjects","announcements","events","admissions","attendance","results","assignments","materials","exams","attempts","fees","audit","settings"]) files[name]=path.join(DATA_DIR,`${name}.json`);
+for (const name of ["users","students","teachers","parents","classes","subjects","announcements","events","admissions","attendance","results","assignments","materials","exams","attempts","fees","audit","settings","timetable","gallery","payments","bankaccounts","messages"]) files[name]=path.join(DATA_DIR,`${name}.json`);
 
 const classSeed=[
  {id:"kindergarten",name:"Kindergarten",section:"Early Years",defaultSubjectIds:[]},
@@ -39,7 +39,7 @@ const subjectSeed=["English Language","Mathematics","Basic Science","Basic Techn
 
 const defaults={
  classes:classSeed, subjects:subjectSeed, students:[],teachers:[],parents:[],announcements:[],events:[],admissions:[],attendance:[],results:[],assignments:[],materials:[],exams:[],attempts:[],fees:[],audit:[],
- settings:{schoolName:"Masaba School Solution",motto:"Illuminating minds & hearts to a better future.",address:"No. 1 Masaba Estate, Ita Oshin, Abeokuta, Ogun State, Nigeria.",emails:["masabaintl@gmail.com","masabasolutions@gmail.com"],phones:["0703 835 8625","0708 178 9499","0904 504 0370"],session:"2026/2027",term:"First Term"}
+ settings:{schoolName:"Masaba School Solution",motto:"Illuminating minds & hearts to a brighter future.",address:"No. 1 Masaba Estate, Ita Oshin, Abeokuta, Ogun State, Nigeria (near Bovas Gas Station)",emails:["masabasolutions@gmail.com"],phones:["0703 835 8625","0708 178 9499","0904 504 0370"],session:"2026/2027",term:"First Term"}
 };
 
 const NAMES=Object.keys(files);
@@ -135,6 +135,11 @@ function seed(){
  }
 }
 function migrate(){
+ const st=read("settings");let ch=false;
+ if(st.address&&/Masaba Estate, Ita Oshin, Abeokuta/i.test(st.address)&&!/bovas/i.test(st.address)){st.address="No. 1 Masaba Estate, Ita Oshin, Abeokuta, Ogun State, Nigeria (near Bovas Gas Station)";ch=true}
+ if(Array.isArray(st.emails)&&st.emails.some(e=>/masabaintl@gmail\.com|masabainternational@gmail\.com/i.test(e))){st.emails=st.emails.filter(e=>!/masabaintl@gmail\.com|masabainternational@gmail\.com/i.test(e));ch=true}
+ if(st.motto&&/illuminating/i.test(st.motto)&&/better future/i.test(st.motto)){st.motto="Illuminating minds & hearts to a brighter future.";ch=true}
+ if(ch)write("settings",st);
  const cl=read("classes"),c=cl.find(x=>x.id==="creche");
  if(c){c.id="kindergarten";c.name="Kindergarten";write("classes",cl);const st=read("students");st.forEach(x=>{if(x.classId==="creche")x.classId="kindergarten"});write("students",st)}
 }
@@ -192,30 +197,30 @@ app.get("/api/backup",auth,roles("admin","principal"),(req,res)=>{
 app.get("/api/health",(req,res)=>res.json({ok:true,storage:pool?"database":"files"}));
 app.get("/api/auth/me",auth,(req,res)=>res.json({user:req.user}));
 
-app.get("/api/public",(req,res)=>res.json({school:read("settings"),classes:read("classes"),subjects:read("subjects").filter(s=>s.active!==false),announcements:read("announcements").slice(0,10),events:read("events").slice(0,10)}));
+app.get("/api/public",(req,res)=>res.json({school:(({notifyEmail,galleryApproval,emailAbsence,...p})=>p)(read("settings")),classes:read("classes").map(c=>({id:c.id,name:c.name,section:c.section,hasTeacher:!!c.classTeacherId})),subjects:read("subjects").filter(s=>s.active!==false),announcements:read("announcements").slice(0,10),events:read("events").slice(0,10)}));
 
-app.post("/api/admissions",(req,res)=>{const b=req.body||{};if(!b.parentName||!b.phone||!b.studentName)return res.status(400).json({error:"Parent name, phone and student name are required"});const rows=read("admissions");const item={id:uid("adm"),parentName:b.parentName,phone:b.phone,email:b.email||"",studentName:b.studentName,classApplying:b.classApplying||"",message:b.message||"",status:"New",createdAt:new Date().toISOString()};rows.unshift(item);write("admissions",rows);res.status(201).json(item)});
+app.post("/api/admissions",(req,res)=>{const b=req.body||{};if(!b.parentName||!b.phone||!b.studentName)return res.status(400).json({error:"Parent name, phone and student name are required"});const rows=read("admissions");const item={id:uid("adm"),parentName:b.parentName,phone:b.phone,email:b.email||"",studentName:b.studentName,classApplying:b.classApplying||"",priorSchool:String(b.priorSchool||"").trim().slice(0,120),priorGrade:String(b.priorGrade||"").trim().slice(0,60),message:b.message||"",status:"New",createdAt:new Date().toISOString()};rows.unshift(item);write("admissions",rows);res.status(201).json(item)});
 
 app.get("/api/dashboard",auth,(req,res)=>{
  const students=read("students"),teachers=read("teachers"),parents=read("parents"),exams=read("exams");
  if(req.user.role==="student"){const s=students.find(x=>x.id===req.user.personId);return res.json({role:"student",student:s,subjects:read("subjects").filter(x=>(s?.subjectIds||[]).includes(x.id)),results:read("results").filter(x=>x.studentId===s?.id),attendance:read("attendance").filter(x=>x.studentId===s?.id),fees:read("fees").filter(x=>x.studentId===s?.id),assignments:read("assignments").filter(x=>x.classId===s?.classId),materials:read("materials").filter(x=>x.classId===s?.classId),exams:exams.filter(x=>x.status==="published")})}
  if(req.user.role==="parent"){const p=read("parents").find(x=>x.id===req.user.personId),ids=p?.studentIds||[];return res.json({role:"parent",parent:p,children:students.filter(s=>ids.includes(s.id)),results:read("results").filter(x=>ids.includes(x.studentId)),attendance:read("attendance").filter(x=>ids.includes(x.studentId)),fees:read("fees").filter(x=>ids.includes(x.studentId)),assignments:read("assignments").filter(x=>ids.includes(x.studentId))})}
- if(req.user.role==="teacher"){const t=read("teachers").find(x=>x.id===req.user.personId);return res.json({role:"teacher",teacher:t,students:students.filter(s=>(t?.classIds||[]).includes(s.classId)),classes:read("classes"),subjects:read("subjects"),assignments:read("assignments").filter(x=>x.teacherId===req.user.personId),materials:read("materials").filter(x=>x.teacherId===req.user.personId),exams:exams.filter(x=>x.createdBy===req.user.personId||req.user.role==="admin")})}
- res.json({role:req.user.role,stats:{students:students.length,teachers:teachers.length,parents:parents.length,classes:read("classes").length,subjects:read("subjects").length,exams:exams.length,admissions:read("admissions").filter(x=>x.status==="New").length,feesOutstanding:read("fees").filter(x=>x.status!=="Paid").length},announcements:read("announcements").slice(0,8),events:read("events").slice(0,8)});
+ if(req.user.role==="teacher"){const t=read("teachers").find(x=>x.id===req.user.personId);return res.json({role:"teacher",teacher:t,students:students.filter(s=>(t?.classIds||[]).includes(s.classId)&&isActiveStu(s)),classes:read("classes"),subjects:read("subjects"),assignments:read("assignments").filter(x=>x.teacherId===req.user.personId),materials:read("materials").filter(x=>x.teacherId===req.user.personId),exams:exams.filter(x=>x.createdBy===req.user.personId||req.user.role==="admin")})}
+ res.json({role:req.user.role,stats:{students:students.filter(isActiveStu).length,teachers:teachers.length,parents:parents.length,classes:read("classes").length,subjects:read("subjects").length,exams:exams.length,admissions:read("admissions").filter(x=>x.status==="New").length,feesOutstanding:read("fees").filter(x=>x.status!=="Paid").length,pendingPayments:read("payments").filter(x=>x.status==="Pending").length},announcements:read("announcements").slice(0,8),events:read("events").slice(0,8)});
 });
 
 app.get("/api/students",auth,roles("admin","principal","teacher"),(req,res)=>{
- const rows=read("students");
+ const rows=read("students").filter(s=>req.query.all==="1"||isActiveStu(s));
  if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);return res.json(rows.filter(s=>(tea?.classIds||[]).includes(s.classId)))}
  res.json(rows);
 });
 app.get("/api/students/:id",auth,(req,res)=>{const s=read("students").find(x=>x.id===req.params.id);if(!s)return res.status(404).json({error:"Student not found"});if(req.user.role==="student"&&req.user.personId!==s.id)return res.status(403).json({error:"Access denied"});if(req.user.role==="parent"&&!read("parents").find(p=>p.id===req.user.personId&&p.studentIds.includes(s.id)))return res.status(403).json({error:"Access denied"});if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);if(!(tea?.classIds||[]).includes(s.classId))return res.status(403).json({error:"Student is outside your assigned classes"});}res.json({...s,subjects:read("subjects").filter(x=>(s.subjectIds||[]).includes(x.id)),class:read("classes").find(x=>x.id===s.classId),parent:read("parents").find(x=>x.id===s.parentId)})});
-app.post("/api/students",auth,roles("admin","principal"),(req,res)=>{const rows=read("students"),b=req.body||{};const item={id:uid("stu"),admissionNo:b.admissionNo||`MSS-${String(rows.length+1).padStart(4,"0")}`,name:b.name||"Unnamed Student",classId:b.classId||"kindergarten",gender:b.gender||"",dob:b.dob||"",parentId:b.parentId||null,status:b.status||"Active",subjectIds:Array.isArray(b.subjectIds)?b.subjectIds:[]};rows.push(item);write("students",rows);audit(req.user,"CREATE_STUDENT",item.name);res.status(201).json(item)});
-app.patch("/api/students/:id",auth,roles("admin","principal"),(req,res)=>{const rows=read("students"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Student not found"});rows[i]={...rows[i],...clean(req.body),id:rows[i].id,subjectIds:Array.isArray(req.body.subjectIds)?req.body.subjectIds:(rows[i].subjectIds||[])};write("students",rows);audit(req.user,"UPDATE_STUDENT",rows[i].name);res.json(rows[i])});
+app.post("/api/students",auth,roles("admin","principal"),(req,res)=>{const rows=read("students"),b=req.body||{};const item={id:uid("stu"),admissionNo:b.admissionNo||`MSS-${String(rows.length+1).padStart(4,"0")}`,name:b.name||"Unnamed Student",classId:b.classId||"kindergarten",gender:b.gender||"",dob:b.dob||"",schoolEmail:String(b.schoolEmail||"").trim(),parentId:b.parentId||null,status:b.status||"Active",subjectIds:Array.isArray(b.subjectIds)?b.subjectIds:[]};rows.push(item);write("students",rows);audit(req.user,"CREATE_STUDENT",item.name);res.status(201).json(item)});
+app.patch("/api/students/:id",auth,roles("admin","principal"),(req,res)=>{const rows=read("students"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Student not found"});const sb=clean(req.body);if(["Expelled","Withdrawn"].includes(rows[i].status)||!["Active","Inactive"].includes(sb.status))delete sb.status;delete sb.statusReason;rows[i]={...rows[i],...sb,id:rows[i].id,subjectIds:Array.isArray(req.body.subjectIds)?req.body.subjectIds:(rows[i].subjectIds||[])};write("students",rows);audit(req.user,"UPDATE_STUDENT",rows[i].name);res.json(rows[i])});
 app.put("/api/students/:id/subjects",auth,roles("admin","principal","teacher"),(req,res)=>{const rows=read("students"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Student not found"});if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);if(!(tea?.classIds||[]).includes(rows[i].classId))return res.status(403).json({error:"Student is outside your assigned classes"});}const ids=(req.body.subjectIds||[]).map(String);if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);const allowed=new Set(tea?.subjectIds||[]);if(ids.some(id=>!allowed.has(id)))return res.status(403).json({error:"You can only assign subjects you are authorized to teach"});}rows[i].subjectIds=[...new Set(ids)];write("students",rows);audit(req.user,"UPDATE_STUDENT_SUBJECTS",`${rows[i].name}: ${rows[i].subjectIds.join(",")}`);res.json({student:rows[i],subjects:read("subjects").filter(s=>ids.includes(s.id))})});
 
 app.get("/api/teachers",auth,roles("admin","principal","teacher"),(req,res)=>res.json(read("teachers")));
-app.post("/api/teachers",auth,roles("admin","principal"),(req,res)=>{const rows=read("teachers"),b=req.body||{};const item={id:uid("tea"),name:b.name||"Unnamed Teacher",staffId:b.staffId||`MSS-T${String(rows.length+1).padStart(3,"0")}`,email:b.email||"",phone:b.phone||"",classIds:b.classIds||[],subjectIds:b.subjectIds||[],status:"Active"};rows.push(item);write("teachers",rows);res.status(201).json(item)});
+app.post("/api/teachers",auth,roles("admin","principal"),(req,res)=>{const rows=read("teachers"),b=req.body||{};const item={id:uid("tea"),name:b.name||"Unnamed Teacher",staffId:b.staffId||`MSS-T${String(rows.length+1).padStart(3,"0")}`,email:b.email||"",schoolEmail:String(b.schoolEmail||"").trim(),phone:b.phone||"",classIds:b.classIds||[],subjectIds:b.subjectIds||[],status:"Active"};rows.push(item);write("teachers",rows);res.status(201).json(item)});
 app.patch("/api/teachers/:id",auth,roles("admin","principal"),(req,res)=>{const rows=read("teachers"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Teacher not found"});rows[i]={...rows[i],...clean(req.body),id:rows[i].id};write("teachers",rows);res.json(rows[i])});
 
 app.get("/api/parents",auth,roles("admin","principal"),(req,res)=>res.json(read("parents")));
@@ -224,7 +229,7 @@ app.patch("/api/parents/:id",auth,roles("admin","principal"),(req,res)=>{const r
 
 app.get("/api/classes",auth,(req,res)=>res.json(read("classes")));
 app.post("/api/classes",auth,roles("admin","principal"),(req,res)=>{const rows=read("classes"),b=req.body||{};const item={id:uid("class"),name:b.name||"New Class",section:b.section||"Other",defaultSubjectIds:Array.isArray(b.defaultSubjectIds)?b.defaultSubjectIds:[]};rows.push(item);write("classes",rows);res.status(201).json(item)});
-app.patch("/api/classes/:id",auth,roles("admin","principal"),(req,res)=>{const rows=read("classes"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Class not found"});rows[i]={...rows[i],...clean(req.body),id:rows[i].id};write("classes",rows);res.json(rows[i])});
+app.patch("/api/classes/:id",auth,roles("admin","principal"),(req,res)=>{const ct=req.body&&req.body.classTeacherId;if(ct&&!read("teachers").some(t=>t.id===ct))return res.status(400).json({error:"Teacher not found"});const rows=read("classes"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Class not found"});rows[i]={...rows[i],...clean(req.body),id:rows[i].id};write("classes",rows);res.json(rows[i])});
 
 app.get("/api/subjects",auth,(req,res)=>res.json(read("subjects")));
 app.post("/api/subjects",auth,roles("admin","principal"),(req,res)=>{const rows=read("subjects"),b=req.body||{};const item={id:uid("sub"),name:b.name||"New Subject",active:true};rows.push(item);write("subjects",rows);res.status(201).json(item)});
@@ -235,7 +240,7 @@ app.post("/api/results",auth,roles("admin","principal","teacher"),(req,res)=>{co
 app.patch("/api/results/:id",auth,roles("admin","principal","teacher"),(req,res)=>{const rows=read("results"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Result not found"});if(req.user.role==="teacher"){const tea=read("teachers").find(t=>t.id===req.user.personId),stu=read("students").find(st=>st.id===rows[i].studentId);if(!stu||!(tea?.classIds||[]).includes(stu.classId)||!(tea?.subjectIds||[]).includes(rows[i].subjectId))return res.status(403).json({error:"You can only edit results for your own classes and subjects"})}const ca=Number(req.body.ca??rows[i].ca)||0,exam=Number(req.body.exam??rows[i].exam)||0;rows[i]={...rows[i],...clean(req.body),ca,exam,score:Math.min(100,ca+exam),grade:grade(Math.min(100,ca+exam)),id:rows[i].id};write("results",rows);res.json(rows[i])});
 
 app.get("/api/attendance",auth,(req,res)=>{let rows=read("attendance");if(req.user.role==="student")rows=rows.filter(x=>x.studentId===req.user.personId);if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);const ids=read("students").filter(s=>(tea?.classIds||[]).includes(s.classId)).map(s=>s.id);rows=rows.filter(x=>ids.includes(x.studentId));}if(req.user.role==="parent"){const p=read("parents").find(x=>x.id===req.user.personId);rows=rows.filter(x=>(p?.studentIds||[]).includes(x.studentId)&&x.published!==false)}res.json(rows)});
-app.post("/api/attendance",auth,roles("admin","principal","teacher"),(req,res)=>{const rows=read("attendance"),b=req.body||{};const stu=read("students").find(x=>x.id===b.studentId);if(!stu)return res.status(400).json({error:"Student not found"});if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);if(!(tea?.classIds||[]).includes(stu.classId))return res.status(403).json({error:"Student is outside your assigned classes"})}const item={id:uid("att"),studentId:b.studentId,date:b.date||new Date().toISOString().slice(0,10),status:b.status||"Present",markedBy:req.user.personId||req.user.id};rows.push(item);write("attendance",rows);res.status(201).json(item)});
+app.post("/api/attendance",auth,roles("admin","principal","teacher"),async(req,res)=>{const rows=read("attendance"),b=req.body||{};const stu=read("students").find(x=>x.id===b.studentId);if(!stu)return res.status(400).json({error:"Student not found"});if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);if(!(tea?.classIds||[]).includes(stu.classId))return res.status(403).json({error:"Student is outside your assigned classes"})}const item={id:uid("att"),studentId:b.studentId,date:b.date||new Date().toISOString().slice(0,10),status:b.status||"Present",markedBy:req.user.personId||req.user.id};rows.push(item);write("attendance",rows);if(item.status==="Absent")await notifyAbsence(stu,item.date);res.status(201).json(item)});
 
 app.get("/api/assignments",auth,(req,res)=>{let rows=read("assignments");if(req.user.role==="teacher")rows=rows.filter(x=>x.teacherId===req.user.personId);if(req.user.role==="student"){const s=read("students").find(x=>x.id===req.user.personId);rows=rows.filter(x=>!x.classId||x.classId===s?.classId)}if(req.user.role==="parent"){const p=read("parents").find(x=>x.id===req.user.personId);const classes=read("students").filter(s=>(p?.studentIds||[]).includes(s.id)).map(s=>s.classId);rows=rows.filter(x=>!x.classId||classes.includes(x.classId))}res.json(rows)});
 app.post("/api/assignments",auth,roles("admin","principal","teacher"),(req,res)=>{const rows=read("assignments"),b=req.body||{};const item={id:uid("asg"),title:b.title||"Assignment",description:b.description||"",classId:b.classId||"",subjectId:b.subjectId||"",dueDate:b.dueDate||"",teacherId:req.user.personId||req.user.id,createdAt:new Date().toISOString()};rows.unshift(item);write("assignments",rows);res.status(201).json(item)});
@@ -248,7 +253,7 @@ app.post("/api/fees",auth,roles("admin","principal"),(req,res)=>{const rows=read
 app.patch("/api/fees/:id",auth,roles("admin","principal"),(req,res)=>{const rows=read("fees"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Fee record not found"});rows[i]={...rows[i],...clean(req.body),id:rows[i].id};rows[i].status=Number(rows[i].paid)>=Number(rows[i].amount)?"Paid":Number(rows[i].paid)>0?"Part Paid":"Outstanding";write("fees",rows);res.json(rows[i])});
 
 app.get("/api/announcements",auth,(req,res)=>res.json(read("announcements")));
-app.post("/api/announcements",auth,roles("admin","principal","teacher"),(req,res)=>{const rows=read("announcements"),b=req.body||{},item={id:uid("ann"),title:b.title||"Announcement",body:b.body||"",date:new Date().toISOString().slice(0,10),author:req.user.username};rows.unshift(item);write("announcements",rows);res.status(201).json(item)});
+app.post("/api/announcements",auth,roles("admin","principal","teacher"),async(req,res)=>{const rows=read("announcements"),b=req.body||{},item={id:uid("ann"),title:b.title||"Announcement",body:b.body||"",date:new Date().toISOString().slice(0,10),author:req.user.username};rows.unshift(item);write("announcements",rows);let emailed=0;if(b.emailParents&&isMgmt(req.user)){const list=[...new Set(read("parents").filter(p=>p.email).map(p=>p.email))].slice(0,100);const out=await Promise.all(list.map(e=>sendEmail(e,item.title,emailHtml(item.title,[h(item.body).replace(/\n/g,"<br>")]))));emailed=out.filter(Boolean).length}res.status(201).json({...item,emailed});});
 app.delete("/api/announcements/:id",auth,roles("admin","principal"),(req,res)=>{write("announcements",read("announcements").filter(x=>x.id!==req.params.id));res.json({ok:true})});
 
 app.get("/api/events",auth,(req,res)=>res.json(read("events")));
@@ -269,9 +274,9 @@ app.get("/api/exam-attempts",auth,roles("admin","principal","teacher"),(req,res)
 
 const OKEXT=new Set([".jpg",".jpeg",".png",".webp",".gif",".pdf",".doc",".docx",".ppt",".pptx",".xls",".xlsx",".txt"]);
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:4*1024*1024},fileFilter:(req,file,cb)=>OKEXT.has(path.extname(file.originalname).toLowerCase())?cb(null,true):cb(new Error("This file type is not allowed"))});
-app.post("/api/upload",auth,roles("admin","principal","teacher"),upload.single("file"),inCtx(async(req,res)=>{
+app.post("/api/upload",auth,roles("admin","principal","teacher","parent"),upload.single("file"),inCtx(async(req,res)=>{
  if(!req.file)return res.status(400).json({error:"No file uploaded"});
- const id=uid("f"),ext=path.extname(req.file.originalname).toLowerCase();
+ const id=uid("f"),ext=path.extname(req.file.originalname).toLowerCase();if(req.user.role==="parent"&&![".jpg",".jpeg",".png",".webp",".pdf"].includes(ext))return res.status(400).json({error:"Please upload a photo or a PDF"});
  if(pool){await als.getStore().client.query("insert into files(id,name,mime,data) values($1,$2,$3,$4)",[id,req.file.originalname,req.file.mimetype,req.file.buffer]);return res.json({url:"/api/files/"+id,originalName:req.file.originalname})}
  fs.writeFileSync(path.join(UPLOAD_DIR,id+ext),req.file.buffer);res.json({url:"/uploads/"+id+ext,originalName:req.file.originalname});
 }));
@@ -294,6 +299,252 @@ app.get("/api/report/:studentId",auth,(req,res)=>{
 });
 
 app.use((req,res,next)=>{if(req.method==="GET"&&!req.path.startsWith("/api/"))return res.sendFile(path.join(PUBLIC_DIR,"index.html"));next()});
+// ================= Stage 2 + 3: bank details, student status, timetable, gallery, payments, email =================
+const isMgmt=u=>["admin","principal"].includes(u.role);
+const isActiveStu=s=>!s.status||s.status==="Active"||s.status==="Inactive";
+const teacherOf=u=>read("teachers").find(x=>x.id===u.personId);
+const teacherHasClass=(u,classId)=>(teacherOf(u)?.classIds||[]).includes(classId);
+const h=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+const money=n=>"₦"+Number(n||0).toLocaleString("en-NG");
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const FILE_URL=/^\/(api\/files|uploads)\/[\w.-]+$/;
+const notifyAddress=()=>{const s=read("settings");return s.notifyEmail||(s.emails||[])[0]||""};
+const parentOfStudent=stu=>read("parents").find(p=>p.id===stu?.parentId);
+
+async function sendEmail(to,subject,html){
+ const key=process.env.BREVO_API_KEY,from=process.env.EMAIL_FROM,addr=String(to||"").trim();
+ if(!key||!from||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr))return false;
+ const ac=new AbortController(),t=setTimeout(()=>ac.abort(),5000);
+ try{
+  const r=await fetch("https://api.brevo.com/v3/smtp/email",{method:"POST",signal:ac.signal,headers:{"api-key":key,"content-type":"application/json",accept:"application/json"},
+   body:JSON.stringify({sender:{name:process.env.EMAIL_FROM_NAME||read("settings").schoolName||"School",email:from},to:[{email:addr}],subject,htmlContent:html})});
+  if(!r.ok)console.error("Email failed",r.status);return r.ok;
+ }catch(e){console.error("Email error",e.message);return false}finally{clearTimeout(t)}
+}
+const emailHtml=(title,lines)=>`<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;border:1px solid #e2e9df;border-radius:12px;overflow:hidden"><div style="background:#2f7d20;color:#fff;padding:16px 20px;font-size:18px;font-weight:bold">${h(read("settings").schoolName||"School")}</div><div style="padding:20px;color:#142018;line-height:1.5"><h3 style="margin-top:0">${h(title)}</h3>${lines.map(l=>`<p>${l}</p>`).join("")}</div><div style="background:#f7faf3;color:#66736a;padding:12px 20px;font-size:12px">This is an automated message from the school portal.</div></div>`;
+
+// ---- bank accounts ----
+app.get("/api/bank",auth,(req,res)=>res.json(read("bankaccounts")));
+function bankInput(b){
+ const bankName=String(b.bankName||"").trim().slice(0,60),accountName=String(b.accountName||"").trim().slice(0,80),accountNumber=String(b.accountNumber||"").replace(/\s+/g,"");
+ if(!bankName||!accountName)return {error:"Bank name and account name are required"};
+ if(!/^\d{10}$/.test(accountNumber))return {error:"Account number must be exactly 10 digits"};
+ return {bankName,accountName,accountNumber,note:String(b.note||"").trim().slice(0,200)};
+}
+async function bankAlert(user,what,acct){
+ await sendEmail(notifyAddress(),"School bank details were changed",emailHtml("Bank details changed",[`<b>${h(user.name||user.username)}</b> (${h(user.role)}) ${h(what)}:`,`${h(acct.bankName)} · ${h(acct.accountName)} · <b>${h(acct.accountNumber)}</b>`,"If you did not expect this change, review the Audit log in the portal immediately."]));
+}
+app.post("/api/bank",auth,roles("admin","principal","teacher"),async(req,res)=>{
+ const v=bankInput(req.body||{});if(v.error)return res.status(400).json({error:v.error});
+ const rows=read("bankaccounts"),item={id:uid("bank"),...v,updatedBy:req.user.name||req.user.username,updatedByRole:req.user.role,updatedAt:new Date().toISOString()};
+ rows.push(item);write("bankaccounts",rows);audit(req.user,"BANK_ADD",`${item.bankName} ${item.accountNumber}`);await bankAlert(req.user,"added an account",item);res.status(201).json(item);
+});
+app.patch("/api/bank/:id",auth,roles("admin","principal","teacher"),async(req,res)=>{
+ const rows=read("bankaccounts"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Account not found"});
+ const v=bankInput({...rows[i],...(req.body||{})});if(v.error)return res.status(400).json({error:v.error});
+ const old=rows[i];rows[i]={...old,...v,updatedBy:req.user.name||req.user.username,updatedByRole:req.user.role,updatedAt:new Date().toISOString()};
+ write("bankaccounts",rows);audit(req.user,"BANK_EDIT",`${old.bankName} ${old.accountNumber} -> ${rows[i].bankName} ${rows[i].accountNumber}`);await bankAlert(req.user,"changed an account",rows[i]);res.json(rows[i]);
+});
+app.delete("/api/bank/:id",auth,roles("admin","principal"),async(req,res)=>{
+ const rows=read("bankaccounts"),a=rows.find(x=>x.id===req.params.id);if(!a)return res.status(404).json({error:"Account not found"});
+ write("bankaccounts",rows.filter(x=>x.id!==a.id));audit(req.user,"BANK_DELETE",`${a.bankName} ${a.accountNumber}`);await bankAlert(req.user,"removed an account",a);res.json({ok:true});
+});
+
+// ---- student status (expelled / withdrawn / reinstated) ----
+app.post("/api/students/:id/status",auth,roles("admin","principal","teacher"),(req,res)=>{
+ const rows=read("students"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Student not found"});
+ const {status,reason}=req.body||{};if(!["Active","Expelled","Withdrawn"].includes(status))return res.status(400).json({error:"Choose Expelled, Withdrawn or Active"});
+ if(status==="Active"&&!isMgmt(req.user))return res.status(403).json({error:"Only the principal or administrator can reinstate a student"});
+ if(req.user.role==="teacher"&&!teacherHasClass(req.user,rows[i].classId))return res.status(403).json({error:"Student is outside your assigned classes"});
+ if(status!=="Active"&&String(reason||"").trim().length<3)return res.status(400).json({error:"Please give a reason"});
+ rows[i].status=status;rows[i].statusReason=status==="Active"?"":String(reason).trim().slice(0,300);rows[i].statusDate=todayStr();rows[i].statusBy=req.user.name||req.user.username;write("students",rows);
+ const users=read("users");users.forEach(u=>{if(u.role==="student"&&u.personId===rows[i].id)u.active=status==="Active"});write("users",users);
+ audit(req.user,"STUDENT_STATUS",`${rows[i].name}: ${status}${status==="Active"?"":" - "+rows[i].statusReason}`);res.json(rows[i]);
+});
+
+// ---- timetable ----
+const DAYS=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const HHMM=/^([01]\d|2[0-3]):[0-5]\d$/;
+function ttValidate(b,selfId){
+ if(!read("classes").some(c=>c.id===b.classId))return "Choose a class";
+ if(!DAYS.includes(b.day))return "Choose a day";
+ if(!HHMM.test(b.start||"")||!HHMM.test(b.end||"")||b.start>=b.end)return "Enter a valid start and end time (end must be after start)";
+ if(!b.subjectId&&!String(b.title||"").trim())return "Choose a subject or type a title (for example Break)";
+ if(b.subjectId&&!read("subjects").some(s=>s.id===b.subjectId))return "Subject not found";
+ if(b.teacherId&&!read("teachers").some(t=>t.id===b.teacherId))return "Teacher not found";
+ for(const r of read("timetable")){
+  if(r.id===selfId||r.day!==b.day||!(r.start<b.end&&b.start<r.end))continue;
+  if(r.classId===b.classId)return `This class already has a lesson from ${r.start} to ${r.end}`;
+  if(b.teacherId&&r.teacherId===b.teacherId)return `That teacher is already teaching another class from ${r.start} to ${r.end}`;
+ }
+ return null;
+}
+const ttPick=b=>({classId:b.classId,day:b.day,start:b.start,end:b.end,subjectId:b.subjectId||"",title:String(b.title||"").trim().slice(0,60),teacherId:b.teacherId||"",room:String(b.room||"").trim().slice(0,40)});
+const ttEnrich=r=>({...r,subjectName:read("subjects").find(s=>s.id===r.subjectId)?.name||"",teacherName:read("teachers").find(t=>t.id===r.teacherId)?.name||""});
+app.get("/api/timetable",auth,(req,res)=>{
+ let rows=read("timetable");
+ if(req.user.role==="student"){const s=read("students").find(x=>x.id===req.user.personId);rows=rows.filter(r=>r.classId===s?.classId)}
+ if(req.user.role==="parent"){const p=read("parents").find(x=>x.id===req.user.personId),cl=read("students").filter(s=>(p?.studentIds||[]).includes(s.id)).map(s=>s.classId);rows=rows.filter(r=>cl.includes(r.classId))}
+ res.json(rows.map(ttEnrich));
+});
+app.post("/api/timetable",auth,roles("admin","principal","teacher"),(req,res)=>{
+ const b=ttPick(req.body||{});if(req.user.role==="teacher"&&!teacherHasClass(req.user,b.classId))return res.status(403).json({error:"You can only edit the timetable of your own classes"});
+ const err=ttValidate(b);if(err)return res.status(400).json({error:err});
+ const rows=read("timetable"),item={id:uid("tt"),...b,updatedBy:req.user.name||req.user.username};rows.push(item);write("timetable",rows);audit(req.user,"TIMETABLE_ADD",`${b.classId} ${b.day} ${b.start}-${b.end}`);res.status(201).json(ttEnrich(item));
+});
+app.patch("/api/timetable/:id",auth,roles("admin","principal","teacher"),(req,res)=>{
+ const rows=read("timetable"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Lesson not found"});
+ const b=ttPick({...rows[i],...(req.body||{})});
+ if(req.user.role==="teacher"&&(!teacherHasClass(req.user,rows[i].classId)||!teacherHasClass(req.user,b.classId)))return res.status(403).json({error:"You can only edit the timetable of your own classes"});
+ const err=ttValidate(b,rows[i].id);if(err)return res.status(400).json({error:err});
+ rows[i]={...rows[i],...b,updatedBy:req.user.name||req.user.username};write("timetable",rows);audit(req.user,"TIMETABLE_EDIT",`${b.classId} ${b.day} ${b.start}-${b.end}`);res.json(ttEnrich(rows[i]));
+});
+app.delete("/api/timetable/:id",auth,roles("admin","principal","teacher"),(req,res)=>{
+ const rows=read("timetable"),r=rows.find(x=>x.id===req.params.id);if(!r)return res.status(404).json({error:"Lesson not found"});
+ if(req.user.role==="teacher"&&!teacherHasClass(req.user,r.classId))return res.status(403).json({error:"You can only edit the timetable of your own classes"});
+ write("timetable",rows.filter(x=>x.id!==r.id));audit(req.user,"TIMETABLE_DELETE",`${r.classId} ${r.day} ${r.start}-${r.end}`);res.json({ok:true});
+});
+
+// ---- gallery (post style) ----
+const galleryReady=p=>p.status==="published";
+app.get("/api/public/gallery",(req,res)=>res.json(read("gallery").filter(galleryReady).slice(0,60)));
+app.get("/api/gallery",auth,roles("admin","principal","teacher"),(req,res)=>res.json(read("gallery")));
+app.post("/api/gallery",auth,roles("admin","principal","teacher"),(req,res)=>{
+ const b=req.body||{},photos=Array.isArray(b.photos)?b.photos.filter(x=>FILE_URL.test(String(x))).slice(0,10):[],caption=String(b.caption||"").trim().slice(0,1000);
+ if(!photos.length)return res.status(400).json({error:"Add at least one photo"});
+ const needs=!!read("settings").galleryApproval&&!isMgmt(req.user);
+ const item={id:uid("post"),caption,album:String(b.album||"").trim().slice(0,60),photos,authorId:req.user.id,authorName:req.user.name||req.user.username,authorRole:req.user.role,createdAt:new Date().toISOString(),status:needs?"pending":"published"};
+ const rows=read("gallery");rows.unshift(item);write("gallery",rows);audit(req.user,"GALLERY_POST",`${photos.length} photo(s)${needs?" (awaiting approval)":""}`);res.status(201).json(item);
+});
+app.patch("/api/gallery/:id",auth,roles("admin","principal","teacher"),(req,res)=>{
+ const rows=read("gallery"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Post not found"});
+ const own=rows[i].authorId===req.user.id,b=req.body||{};if(!own&&!isMgmt(req.user))return res.status(403).json({error:"You can only edit your own posts"});
+ if(b.caption!==undefined)rows[i].caption=String(b.caption).trim().slice(0,1000);if(b.album!==undefined)rows[i].album=String(b.album).trim().slice(0,60);
+ if(b.status!==undefined){if(!isMgmt(req.user))return res.status(403).json({error:"Only the principal or administrator can approve posts"});if(["published","pending"].includes(b.status))rows[i].status=b.status}
+ write("gallery",rows);audit(req.user,"GALLERY_EDIT",rows[i].id);res.json(rows[i]);
+});
+app.delete("/api/gallery/:id",auth,roles("admin","principal","teacher"),async(req,res)=>{
+ const rows=read("gallery"),p=rows.find(x=>x.id===req.params.id);if(!p)return res.status(404).json({error:"Post not found"});
+ if(p.authorId!==req.user.id&&!isMgmt(req.user))return res.status(403).json({error:"You can only delete your own posts"});
+ write("gallery",rows.filter(x=>x.id!==p.id));
+ if(pool){const ids=p.photos.map(u=>u.split("/").pop());await als.getStore().client.query("delete from files where id = any($1)",[ids])}
+ audit(req.user,"GALLERY_DELETE",p.id);res.json({ok:true});
+});
+
+// ---- payments by bank transfer, confirmation and receipts ----
+function applyPayment(p,user){
+ const fees=read("fees"),f=fees.find(x=>x.id===p.feeId);if(!f)return "Fee record not found";
+ const bal=Number(f.amount)-Number(f.paid||0);if(p.amount>bal+0.001)return `This amount is more than the outstanding balance of ${money(bal)}`;
+ f.paid=Number(f.paid||0)+p.amount;f.status=f.paid>=Number(f.amount)?"Paid":f.paid>0?"Part Paid":"Outstanding";write("fees",fees);
+ const n=read("payments").filter(x=>x.receiptNo).length+1;
+ p.receiptNo=`MSS-${new Date().getFullYear()}-${String(n).padStart(5,"0")}`;p.status="Confirmed";p.reviewedBy=user.name||user.username;p.reviewedAt=new Date().toISOString();return null;
+}
+async function receiptEmail(p){
+ const stu=read("students").find(s=>s.id===p.studentId),par=parentOfStudent(stu);if(!par?.email)return;
+ await sendEmail(par.email,`Payment received - receipt ${p.receiptNo}`,emailHtml("Payment confirmed",[`We have confirmed your payment of <b>${h(money(p.amount))}</b> for <b>${h(stu?.name)}</b>.`,`Receipt number: <b>${h(p.receiptNo)}</b>. You can view and print the receipt in the parent portal under Fees.`,"Thank you."]));
+}
+app.get("/api/payments",auth,roles("admin","principal","parent","student"),(req,res)=>{
+ let rows=read("payments");
+ if(req.user.role==="parent"){const p=read("parents").find(x=>x.id===req.user.personId);rows=rows.filter(x=>(p?.studentIds||[]).includes(x.studentId))}
+ if(req.user.role==="student")rows=rows.filter(x=>x.studentId===req.user.personId);
+ res.json(rows);
+});
+app.post("/api/payments",auth,roles("admin","principal","parent"),async(req,res)=>{
+ const b=req.body||{},fee=read("fees").find(f=>f.id===b.feeId);if(!fee)return res.status(400).json({error:"Choose the fee you are paying for"});
+ if(req.user.role==="parent"){const p=read("parents").find(x=>x.id===req.user.personId);if(!(p?.studentIds||[]).includes(fee.studentId))return res.status(403).json({error:"This fee does not belong to your child"})}
+ const amount=Math.round(Number(b.amount)*100)/100;if(!(amount>0))return res.status(400).json({error:"Enter the amount paid"});
+ const bal=Number(fee.amount)-Number(fee.paid||0);if(amount>bal+0.001)return res.status(400).json({error:`Amount is more than the outstanding balance of ${money(bal)}`});
+ if(b.proofUrl&&!FILE_URL.test(String(b.proofUrl)))return res.status(400).json({error:"Invalid proof file"});
+ const reference=String(b.reference||"").trim().slice(0,80),rows=read("payments");
+ if(reference&&rows.some(x=>x.feeId===fee.id&&x.reference===reference&&x.amount===amount&&x.status!=="Rejected"))return res.status(409).json({error:"This payment has already been submitted"});
+ const item={id:uid("pay"),feeId:fee.id,studentId:fee.studentId,amount,method:"Bank transfer",paidOn:b.paidOn||todayStr(),reference,senderName:String(b.senderName||"").trim().slice(0,80),proofUrl:b.proofUrl||"",note:String(b.note||"").trim().slice(0,300),status:"Pending",submittedBy:req.user.id,submittedByName:req.user.name||req.user.username,submittedAt:new Date().toISOString()};
+ const stu=read("students").find(s=>s.id===fee.studentId);
+ if(req.user.role!=="parent"){const err=applyPayment(item,req.user);if(err)return res.status(400).json({error:err})}
+ rows.unshift(item);write("payments",rows);audit(req.user,item.status==="Confirmed"?"PAYMENT_RECORDED":"PAYMENT_SUBMITTED",`${stu?.name}: ${money(amount)}`);
+ if(item.status==="Pending")await sendEmail(notifyAddress(),"A payment is waiting for confirmation",emailHtml("New payment to confirm",[`<b>${h(req.user.name||req.user.username)}</b> says they paid <b>${h(money(amount))}</b> for <b>${h(stu?.name)}</b> (${h(fee.item)}).`,"Check your bank account, then confirm or reject it in the portal under Payments."]));
+ else await receiptEmail(item);
+ res.status(201).json(item);
+});
+app.post("/api/payments/:id/confirm",auth,roles("admin","principal"),async(req,res)=>{
+ const rows=read("payments"),p=rows.find(x=>x.id===req.params.id);if(!p)return res.status(404).json({error:"Payment not found"});
+ if(p.status!=="Pending")return res.status(409).json({error:"This payment was already reviewed"});
+ if(req.body?.amount!==undefined){const a=Math.round(Number(req.body.amount)*100)/100;if(!(a>0))return res.status(400).json({error:"Invalid amount"});p.amount=a}
+ const err=applyPayment(p,req.user);if(err)return res.status(400).json({error:err});
+ write("payments",rows);audit(req.user,"PAYMENT_CONFIRMED",`${p.receiptNo} ${money(p.amount)}`);await receiptEmail(p);res.json(p);
+});
+app.post("/api/payments/:id/reject",auth,roles("admin","principal"),async(req,res)=>{
+ const rows=read("payments"),p=rows.find(x=>x.id===req.params.id);if(!p)return res.status(404).json({error:"Payment not found"});
+ if(p.status!=="Pending")return res.status(409).json({error:"This payment was already reviewed"});
+ const reason=String(req.body?.reason||"").trim().slice(0,300);if(reason.length<3)return res.status(400).json({error:"Please give a reason"});
+ p.status="Rejected";p.rejectReason=reason;p.reviewedBy=req.user.name||req.user.username;p.reviewedAt=new Date().toISOString();write("payments",rows);audit(req.user,"PAYMENT_REJECTED",`${money(p.amount)} - ${reason}`);
+ const stu=read("students").find(s=>s.id===p.studentId),par=parentOfStudent(stu);
+ if(par?.email)await sendEmail(par.email,"We could not confirm your payment",emailHtml("Payment not confirmed",[`We could not confirm your payment of <b>${h(money(p.amount))}</b> for <b>${h(stu?.name)}</b>.`,`Reason: ${h(reason)}`,"Please check the details and submit again, or contact the school office."]));
+ res.json(p);
+});
+app.get("/api/receipt/:id",auth,(req,res)=>{
+ const p=read("payments").find(x=>x.id===req.params.id);if(!p||p.status!=="Confirmed")return res.status(404).json({error:"Receipt not found"});
+ const stu=read("students").find(s=>s.id===p.studentId);
+ const ok=isMgmt(req.user)||(req.user.role==="student"&&req.user.personId===p.studentId)||(req.user.role==="parent"&&(read("parents").find(x=>x.id===req.user.personId)?.studentIds||[]).includes(p.studentId));
+ if(!ok)return res.status(403).json({error:"Access denied"});
+ const fee=read("fees").find(f=>f.id===p.feeId);
+ res.json({school:read("settings"),payment:p,student:stu,class:read("classes").find(c=>c.id===stu?.classId),fee,balance:fee?Number(fee.amount)-Number(fee.paid||0):0,parent:parentOfStudent(stu)});
+});
+
+// ---- email helpers used by other routes ----
+async function notifyAbsence(stu,date){
+ if(read("settings").emailAbsence===false)return;const par=parentOfStudent(stu);if(!par?.email)return;
+ await sendEmail(par.email,`${stu.name} was marked absent on ${date}`,emailHtml("Absence notice",[`${h(stu.name)} was marked <b>absent</b> on <b>${h(date)}</b>.`,"If this is a mistake or you have a reason for the absence, please contact the school."]));
+}
+
+// ---- messages: visitors and parents talk to the class teacher ----
+const pubTries=new Map();
+const classTeacherOf=cid=>{const c=read("classes").find(x=>x.id===cid);return c?.classTeacherId?read("teachers").find(t=>t.id===c.classTeacherId):null};
+const canSeeMsg=(m,u)=>isMgmt(u)||(u.role==="teacher"&&m.toTeacherId===u.personId)||(u.role==="parent"&&m.fromUserId===u.id);
+async function notifyNewMessage(m){
+ const t=read("teachers").find(x=>x.id===m.toTeacherId),cls=read("classes").find(c=>c.id===m.classId)?.name||"a class";
+ const html=emailHtml("New message about "+cls,[`From <b>${h(m.fromName)}</b>${m.fromContact?" ("+h(m.fromContact)+")":""}:`,h(m.text).replace(/\n/g,"<br>"),"Reply in the portal under Messages."]);
+ if(t?.email)await sendEmail(t.email,"New message about "+cls,html);
+ await sendEmail(notifyAddress(),"New message about "+cls+(t?" (for "+t.name+")":" (no class teacher set)"),html);
+}
+app.post("/api/public/message",async(req,res)=>{
+ const b=req.body||{};
+ if(b.website)return res.status(201).json({ok:true});
+ const cls=read("classes").find(c=>c.id===b.classId);if(!cls)return res.status(400).json({error:"Choose a class"});
+ const name=String(b.name||"").trim().slice(0,80),contact=String(b.contact||"").trim().slice(0,80),text=String(b.message||"").trim().slice(0,1500);
+ if(name.length<2)return res.status(400).json({error:"Please enter your name"});
+ if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(contact)&&contact.replace(/\D/g,"").length<7)return res.status(400).json({error:"Enter a phone number or email so the teacher can reply"});
+ if(text.length<5)return res.status(400).json({error:"Please write your message"});
+ const ip=req.ip||"?",now=Date.now(),recent=(pubTries.get(ip)||[]).filter(t=>now-t<3600000),rows=read("messages");
+ if(recent.length>=5||rows.filter(m=>m.kind==="public"&&m.fromContact===contact&&now-Date.parse(m.createdAt)<3600000).length>=3)return res.status(429).json({error:"Too many messages. Please try again later."});
+ recent.push(now);pubTries.set(ip,recent);
+ const t=classTeacherOf(cls.id),item={id:uid("msg"),kind:"public",classId:cls.id,toTeacherId:t?.id||"",fromName:name,fromContact:contact,fromUserId:"",text,createdAt:new Date().toISOString(),status:"New",replies:[]};
+ rows.unshift(item);write("messages",rows.slice(0,1000));await notifyNewMessage(item);res.status(201).json({ok:true,toTeacher:!!t});
+});
+app.get("/api/messages",auth,roles("admin","principal","teacher","parent"),(req,res)=>res.json(read("messages").filter(m=>canSeeMsg(m,req.user))));
+app.post("/api/messages",auth,roles("parent"),async(req,res)=>{
+ const b=req.body||{},p=read("parents").find(x=>x.id===req.user.personId);
+ if(!(p?.studentIds||[]).includes(b.studentId))return res.status(403).json({error:"Choose one of your children"});
+ const stu=read("students").find(s=>s.id===b.studentId),text=String(b.text||"").trim().slice(0,1500);if(text.length<2)return res.status(400).json({error:"Please write your message"});
+ const t=classTeacherOf(stu.classId),rows=read("messages"),item={id:uid("msg"),kind:"parent",classId:stu.classId,toTeacherId:t?.id||"",studentId:stu.id,fromName:req.user.name||req.user.username,fromContact:p.phone||p.email||"",fromUserId:req.user.id,text,createdAt:new Date().toISOString(),status:"New",replies:[]};
+ rows.unshift(item);write("messages",rows.slice(0,1000));await notifyNewMessage(item);res.status(201).json(item);
+});
+app.post("/api/messages/:id/reply",auth,roles("admin","principal","teacher","parent"),async(req,res)=>{
+ const rows=read("messages"),m=rows.find(x=>x.id===req.params.id);if(!m||!canSeeMsg(m,req.user))return res.status(404).json({error:"Message not found"});
+ const text=String(req.body?.text||"").trim().slice(0,1500);if(!text)return res.status(400).json({error:"Please write a reply"});
+ m.replies.push({id:uid("rep"),byName:req.user.name||req.user.username,byRole:req.user.role,text,at:new Date().toISOString()});
+ const staff=req.user.role!=="parent";m.status=staff?"Answered":"New";write("messages",rows);
+ const school=read("settings").schoolName||"the school";
+ if(staff){
+  const to=m.kind==="public"?(/@/.test(m.fromContact)?m.fromContact:""):read("parents").find(p=>p.id===read("users").find(u=>u.id===m.fromUserId)?.personId)?.email;
+  if(to)await sendEmail(to,"Reply from "+school,emailHtml("A reply to your message",[`<b>${h(req.user.name||"The school")}</b> replied:`,h(text).replace(/\n/g,"<br>")]));
+ }else await notifyNewMessage({...m,text});
+ res.json(m);
+});
+app.post("/api/messages/:id/close",auth,roles("admin","principal","teacher"),(req,res)=>{
+ const rows=read("messages"),m=rows.find(x=>x.id===req.params.id);if(!m||!canSeeMsg(m,req.user))return res.status(404).json({error:"Message not found"});
+ m.status="Closed";write("messages",rows);res.json(m);
+});
+
 app.use((err,req,res,next)=>{console.error(err.message);res.status(err.status||400).json({error:err.message||"Request failed"})});
 module.exports=app;
-if(require.main===module){ready.then(()=>app.listen(PORT,()=>console.log(`Masaba School Solution running on port ${PORT}`))).catch(()=>process.exit(1))}
+if(require.main===module||typeof PhusionPassenger!=="undefined"){ready.then(()=>app.listen(PORT,()=>console.log(`Masaba School Solution running on port ${PORT}`))).catch(()=>process.exit(1))}

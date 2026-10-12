@@ -1,6 +1,6 @@
 {
   "name": "masaba-school-solution",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "private": true,
   "description": "Masaba School Solution digital campus and school management system",
   "main": "server.js",
@@ -16,6 +16,6 @@
     "pg": "^8.13.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=18"
   }
 }
