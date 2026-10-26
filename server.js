@@ -35,11 +35,11 @@ const classSeed=[
  ...["1","2","3"].map(n=>({id:"jss-"+n,name:"JSS "+n,section:"Junior Secondary",defaultSubjectIds:[]})),
  ...["1","2","3"].map(n=>({id:"sss-"+n,name:"SSS "+n,section:"Senior Secondary",defaultSubjectIds:[]}))
 ];
-const subjectSeed=["English Language","Mathematics","Basic Science","Basic Technology","Computer Studies","Social Studies","Civic Education","Biology","Chemistry","Physics","Economics","Government","Literature","Agricultural Science","Geography","French"].map((name,i)=>({id:"sub-"+(i+1),name,active:true}));
+const subjectSeed=["English Language", "Mathematics", "Basic Science", "Basic Digital Literacy", "Social & Citizen Studies", "Biology", "Chemistry", "Physics", "Economics", "Government", "English Literature", "Yoruba", "Intermediate Science", "Physical & Health Education", "Islamic Studies", "Christian Religious Studies", "Nigerian History", "Cultural & Creative Arts", "Fashion Design & Garment Making", "Citizenship & Heritage Studies", "Further Mathematics", "Technical Drawing", "English Studies", "Digital Technologies"].map((name,i)=>({id:"sub-"+(i+1),name,active:true}));
 
 const defaults={
  classes:classSeed, subjects:subjectSeed, students:[],teachers:[],parents:[],announcements:[],events:[],admissions:[],attendance:[],results:[],assignments:[],materials:[],exams:[],attempts:[],fees:[],audit:[],
- settings:{schoolName:"Masaba School Solution",motto:"Illuminating minds & hearts to a brighter future.",address:"No. 1 Masaba Estate, Ita Oshin, Abeokuta, Ogun State, Nigeria (near Bovas Gas Station)",emails:["masabasolutions@gmail.com"],phones:["0703 835 8625","0708 178 9499","0904 504 0370"],session:"2026/2027",term:"First Term"}
+ settings:{schoolName:"Masaba International Schools",motto:"Illuminating minds & hearts to a brighter future.",address:"No. 1 Masaba Estate, Ita Oshin, Abeokuta, Ogun State, Nigeria (near Bovas Gas Station)",emails:["masabasolutions@gmail.com"],phones:["0703 835 8625","0708 178 9499","0904 504 0370"],session:"2026/2027",term:"First Term"}
 };
 
 const NAMES=Object.keys(files);
@@ -134,15 +134,30 @@ function seed(){
   console.log("Owner account created:",un);
  }
 }
+const SUBJECT_RENAMES={"sub-16":["French","Yoruba"],"sub-4":["Basic Technology","Basic Digital Literacy"],"sub-6":["Social Studies","Social & Citizen Studies"],"sub-13":["Literature","English Literature"]};
+const SUBJECT_RETIRE=["Computer Studies","Agricultural Science","Civic Education","Geography"];
+const SUBJECT_NEW=["Intermediate Science", "Physical & Health Education", "Islamic Studies", "Christian Religious Studies", "Nigerian History", "Cultural & Creative Arts", "Fashion Design & Garment Making", "Citizenship & Heritage Studies", "Further Mathematics", "Technical Drawing", "English Studies", "Digital Technologies"];
 function migrate(){
- const st=read("settings");let ch=false;
- if(st.address&&/Masaba Estate, Ita Oshin, Abeokuta/i.test(st.address)&&!/bovas/i.test(st.address)){st.address="No. 1 Masaba Estate, Ita Oshin, Abeokuta, Ogun State, Nigeria (near Bovas Gas Station)";ch=true}
- if(Array.isArray(st.emails)&&st.emails.some(e=>/masabaintl@gmail\.com|masabainternational@gmail\.com/i.test(e))){st.emails=st.emails.filter(e=>!/masabaintl@gmail\.com|masabainternational@gmail\.com/i.test(e));ch=true}
- if(st.motto&&/illuminating/i.test(st.motto)&&/better future/i.test(st.motto)){st.motto="Illuminating minds & hearts to a brighter future.";ch=true}
+ const st=read("settings"),done=st.migrated||(st.migrated=[]);let ch=false;
+ if(!done.includes("settings-v3")){
+  if(st.address&&/Masaba Estate, Ita Oshin, Abeokuta/i.test(st.address)&&!/bovas/i.test(st.address))st.address="No. 1 Masaba Estate, Ita Oshin, Abeokuta, Ogun State, Nigeria (near Bovas Gas Station)";
+  if(Array.isArray(st.emails))st.emails=st.emails.filter(e=>!/masabaintl@gmail\.com|masabainternational@gmail\.com/i.test(e));
+  if(st.motto&&/illuminating/i.test(st.motto)&&/better future/i.test(st.motto))st.motto="Illuminating minds & hearts to a brighter future.";
+  done.push("settings-v3");ch=true;
+ }
+ if(!done.includes("name-mis")){if(st.schoolName==="Masaba School Solution")st.schoolName="Masaba International Schools";done.push("name-mis");ch=true}
+ if(!done.includes("subjects-v2")){
+  const subs=read("subjects");
+  for(const [id,[from,to]] of Object.entries(SUBJECT_RENAMES)){const x=subs.find(y=>y.id===id);if(x&&x.name===from)x.name=to}
+  for(const x of subs)if(SUBJECT_RETIRE.includes(x.name))x.active=false;
+  for(const name of SUBJECT_NEW)if(!subs.some(x=>x.name.toLowerCase()===name.toLowerCase()))subs.push({id:uid("sub"),name,active:true});
+  write("subjects",subs);done.push("subjects-v2");ch=true;
+ }
  if(ch)write("settings",st);
  const cl=read("classes"),c=cl.find(x=>x.id==="creche");
- if(c){c.id="kindergarten";c.name="Kindergarten";write("classes",cl);const st=read("students");st.forEach(x=>{if(x.classId==="creche")x.classId="kindergarten"});write("students",st)}
+ if(c){c.id="kindergarten";c.name="Kindergarten";write("classes",cl);const stu=read("students");stu.forEach(x=>{if(x.classId==="creche")x.classId="kindergarten"});write("students",stu)}
 }
+
 
 const loginTries=new Map();
 const tooMany=k=>{const a=loginTries.get(k);return a&&a.n>=8&&Date.now()-a.t<15*60000};
@@ -197,7 +212,7 @@ app.get("/api/backup",auth,roles("admin","principal"),(req,res)=>{
 app.get("/api/health",(req,res)=>res.json({ok:true,storage:pool?"database":"files"}));
 app.get("/api/auth/me",auth,(req,res)=>res.json({user:req.user}));
 
-app.get("/api/public",(req,res)=>res.json({school:(({notifyEmail,galleryApproval,emailAbsence,...p})=>p)(read("settings")),classes:read("classes").map(c=>({id:c.id,name:c.name,section:c.section,hasTeacher:!!c.classTeacherId})),subjects:read("subjects").filter(s=>s.active!==false),announcements:read("announcements").slice(0,10),events:read("events").slice(0,10)}));
+app.get("/api/public",(req,res)=>res.json({school:(({notifyEmail,galleryApproval,emailAbsence,migrated,...p})=>p)(read("settings")),classes:read("classes").map(c=>({id:c.id,name:c.name,section:c.section,hasTeacher:!!c.classTeacherId})),subjects:read("subjects").filter(s=>s.active!==false),announcements:read("announcements").slice(0,10),events:read("events").slice(0,10)}));
 
 app.post("/api/admissions",(req,res)=>{const b=req.body||{};if(!b.parentName||!b.phone||!b.studentName)return res.status(400).json({error:"Parent name, phone and student name are required"});const rows=read("admissions");const item={id:uid("adm"),parentName:b.parentName,phone:b.phone,email:b.email||"",studentName:b.studentName,classApplying:b.classApplying||"",priorSchool:String(b.priorSchool||"").trim().slice(0,120),priorGrade:String(b.priorGrade||"").trim().slice(0,60),message:b.message||"",status:"New",createdAt:new Date().toISOString()};rows.unshift(item);write("admissions",rows);res.status(201).json(item)});
 
@@ -215,12 +230,12 @@ app.get("/api/students",auth,roles("admin","principal","teacher"),(req,res)=>{
  res.json(rows);
 });
 app.get("/api/students/:id",auth,(req,res)=>{const s=read("students").find(x=>x.id===req.params.id);if(!s)return res.status(404).json({error:"Student not found"});if(req.user.role==="student"&&req.user.personId!==s.id)return res.status(403).json({error:"Access denied"});if(req.user.role==="parent"&&!read("parents").find(p=>p.id===req.user.personId&&p.studentIds.includes(s.id)))return res.status(403).json({error:"Access denied"});if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);if(!(tea?.classIds||[]).includes(s.classId))return res.status(403).json({error:"Student is outside your assigned classes"});}res.json({...s,subjects:read("subjects").filter(x=>(s.subjectIds||[]).includes(x.id)),class:read("classes").find(x=>x.id===s.classId),parent:read("parents").find(x=>x.id===s.parentId)})});
-app.post("/api/students",auth,roles("admin","principal"),(req,res)=>{const rows=read("students"),b=req.body||{};const item={id:uid("stu"),admissionNo:b.admissionNo||`MSS-${String(rows.length+1).padStart(4,"0")}`,name:b.name||"Unnamed Student",classId:b.classId||"kindergarten",gender:b.gender||"",dob:b.dob||"",schoolEmail:String(b.schoolEmail||"").trim(),parentId:b.parentId||null,status:b.status||"Active",subjectIds:Array.isArray(b.subjectIds)?b.subjectIds:[]};rows.push(item);write("students",rows);audit(req.user,"CREATE_STUDENT",item.name);res.status(201).json(item)});
+app.post("/api/students",auth,roles("admin","principal"),(req,res)=>{const rows=read("students"),b=req.body||{};const item={id:uid("stu"),admissionNo:b.admissionNo||`MIS-${String(rows.length+1).padStart(4,"0")}`,name:b.name||"Unnamed Student",classId:b.classId||"kindergarten",gender:b.gender||"",dob:b.dob||"",schoolEmail:String(b.schoolEmail||"").trim(),parentId:b.parentId||null,status:b.status||"Active",subjectIds:Array.isArray(b.subjectIds)&&b.subjectIds.length?b.subjectIds:[...((read("classes").find(c=>c.id===(b.classId||"kindergarten"))||{}).defaultSubjectIds||[])]};rows.push(item);write("students",rows);audit(req.user,"CREATE_STUDENT",item.name);res.status(201).json(item)});
 app.patch("/api/students/:id",auth,roles("admin","principal"),(req,res)=>{const rows=read("students"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Student not found"});const sb=clean(req.body);if(["Expelled","Withdrawn"].includes(rows[i].status)||!["Active","Inactive"].includes(sb.status))delete sb.status;delete sb.statusReason;rows[i]={...rows[i],...sb,id:rows[i].id,subjectIds:Array.isArray(req.body.subjectIds)?req.body.subjectIds:(rows[i].subjectIds||[])};write("students",rows);audit(req.user,"UPDATE_STUDENT",rows[i].name);res.json(rows[i])});
 app.put("/api/students/:id/subjects",auth,roles("admin","principal","teacher"),(req,res)=>{const rows=read("students"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Student not found"});if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);if(!(tea?.classIds||[]).includes(rows[i].classId))return res.status(403).json({error:"Student is outside your assigned classes"});}const ids=(req.body.subjectIds||[]).map(String);if(req.user.role==="teacher"){const tea=read("teachers").find(x=>x.id===req.user.personId);const allowed=new Set(tea?.subjectIds||[]);if(ids.some(id=>!allowed.has(id)))return res.status(403).json({error:"You can only assign subjects you are authorized to teach"});}rows[i].subjectIds=[...new Set(ids)];write("students",rows);audit(req.user,"UPDATE_STUDENT_SUBJECTS",`${rows[i].name}: ${rows[i].subjectIds.join(",")}`);res.json({student:rows[i],subjects:read("subjects").filter(s=>ids.includes(s.id))})});
 
 app.get("/api/teachers",auth,roles("admin","principal","teacher"),(req,res)=>res.json(read("teachers")));
-app.post("/api/teachers",auth,roles("admin","principal"),(req,res)=>{const rows=read("teachers"),b=req.body||{};const item={id:uid("tea"),name:b.name||"Unnamed Teacher",staffId:b.staffId||`MSS-T${String(rows.length+1).padStart(3,"0")}`,email:b.email||"",schoolEmail:String(b.schoolEmail||"").trim(),phone:b.phone||"",classIds:b.classIds||[],subjectIds:b.subjectIds||[],status:"Active"};rows.push(item);write("teachers",rows);res.status(201).json(item)});
+app.post("/api/teachers",auth,roles("admin","principal"),(req,res)=>{const rows=read("teachers"),b=req.body||{};const item={id:uid("tea"),name:b.name||"Unnamed Teacher",staffId:b.staffId||`MIS-T${String(rows.length+1).padStart(3,"0")}`,email:b.email||"",schoolEmail:String(b.schoolEmail||"").trim(),phone:b.phone||"",classIds:b.classIds||[],subjectIds:b.subjectIds||[],status:"Active"};rows.push(item);write("teachers",rows);res.status(201).json(item)});
 app.patch("/api/teachers/:id",auth,roles("admin","principal"),(req,res)=>{const rows=read("teachers"),i=rows.findIndex(x=>x.id===req.params.id);if(i<0)return res.status(404).json({error:"Teacher not found"});rows[i]={...rows[i],...clean(req.body),id:rows[i].id};write("teachers",rows);res.json(rows[i])});
 
 app.get("/api/parents",auth,roles("admin","principal"),(req,res)=>res.json(read("parents")));
@@ -437,7 +452,7 @@ function applyPayment(p,user){
  const bal=Number(f.amount)-Number(f.paid||0);if(p.amount>bal+0.001)return `This amount is more than the outstanding balance of ${money(bal)}`;
  f.paid=Number(f.paid||0)+p.amount;f.status=f.paid>=Number(f.amount)?"Paid":f.paid>0?"Part Paid":"Outstanding";write("fees",fees);
  const n=read("payments").filter(x=>x.receiptNo).length+1;
- p.receiptNo=`MSS-${new Date().getFullYear()}-${String(n).padStart(5,"0")}`;p.status="Confirmed";p.reviewedBy=user.name||user.username;p.reviewedAt=new Date().toISOString();return null;
+ p.receiptNo=`MIS-${new Date().getFullYear()}-${String(n).padStart(5,"0")}`;p.status="Confirmed";p.reviewedBy=user.name||user.username;p.reviewedAt=new Date().toISOString();return null;
 }
 async function receiptEmail(p){
  const stu=read("students").find(s=>s.id===p.studentId),par=parentOfStudent(stu);if(!par?.email)return;
@@ -545,6 +560,17 @@ app.post("/api/messages/:id/close",auth,roles("admin","principal","teacher"),(re
  m.status="Closed";write("messages",rows);res.json(m);
 });
 
+// ---- class subject lists (apply to every student in a class) ----
+app.post("/api/classes/:id/subjects",auth,roles("admin","principal"),(req,res)=>{
+ const classes=read("classes"),c=classes.find(x=>x.id===req.params.id);if(!c)return res.status(404).json({error:"Class not found"});
+ const valid=new Set(read("subjects").filter(x=>x.active!==false).map(x=>x.id));
+ const next=[...new Set((Array.isArray(req.body?.subjectIds)?req.body.subjectIds:[]).filter(id=>valid.has(id)))];
+ const removed=(c.defaultSubjectIds||[]).filter(id=>!next.includes(id));c.defaultSubjectIds=next;write("classes",classes);
+ let updated=0;
+ if(req.body?.apply){const stu=read("students");for(const x of stu){if(x.classId===c.id&&isActiveStu(x)){const set=new Set([...(x.subjectIds||[]),...next]);removed.forEach(id=>set.delete(id));x.subjectIds=[...set];updated++}}write("students",stu)}
+ audit(req.user,"CLASS_SUBJECTS",`${c.name}: ${next.length} subject(s), applied to ${updated} student(s)`);res.json({class:c,updated});
+});
+
 app.use((err,req,res,next)=>{console.error(err.message);res.status(err.status||400).json({error:err.message||"Request failed"})});
 module.exports=app;
-if(require.main===module||typeof PhusionPassenger!=="undefined"){ready.then(()=>app.listen(PORT,()=>console.log(`Masaba School Solution running on port ${PORT}`))).catch(()=>process.exit(1))}
+if(require.main===module||typeof PhusionPassenger!=="undefined"){ready.then(()=>app.listen(PORT,()=>console.log(`Masaba International Schools running on port ${PORT}`))).catch(()=>process.exit(1))}
